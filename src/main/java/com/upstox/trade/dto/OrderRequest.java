@@ -15,5 +15,5 @@ public class OrderRequest {
      * Ideally, this will be an enum to restrict user choices.
      */
     private String symbol;
-    private int interval;
+    private Long interval = 15L;
 }

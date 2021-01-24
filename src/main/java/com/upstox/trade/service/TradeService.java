@@ -16,47 +16,49 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.upstox.trade.bean.Constants.*;
 import static java.util.Objects.isNull;
+import static java.util.Objects.nonNull;
 
 @Service
 public class TradeService {
-    // Can consider PriorityBlockingQueue to sort by timestamps, will help with 15 sec blocks
-    private final BlockingQueue<List<Trade>> rawTradesQueue = new LinkedBlockingQueue<>(10);
-    private final BlockingQueue<Map<String, List<OrderResponse>>> computedTradesQueue = new LinkedBlockingQueue<>(10);
-//    private final BlockingQueue<String> symbolsToTrack = new LinkedBlockingQueue<>(1000);
-    final WorkerThread workerThread = new WorkerThread(rawTradesQueue, computedTradesQueue);
-    private volatile Long barStart;
+    private static final BlockingQueue<List<Trade>> rawTradesQueue = new LinkedBlockingQueue<>(1);
+    private static final BlockingQueue<Map<String, List<OrderResponse>>> computedTradesQueue = new LinkedBlockingQueue<>(1);
+    private static volatile Long barStart;
+    private static Map<String, Runnable> threads;
 
-    public void process(OrderRequest request) throws InterruptedException {
+    public void process(OrderRequest request) {
+        threads = initialize();
+        if(nonNull(threads)) {
+            final ReaderThread readerThread = (ReaderThread)threads.get(READER_THREAD);
+            readerThread.setBarInterval(request.getInterval());
+            new Thread(readerThread).start();
 
-        // This method should ideally, just update the publisherTread that
-        // Some new client has placed order for  new trade, so the published batch should contain that Trade info starting immediately
-        workerThread.addSymbolToTrack(request.getSymbol());
-        initialize();
+            final WorkerThread workerThread = (WorkerThread)threads.get(WORKER_THREAD);
+            workerThread.addSymbolToTrack(request.getSymbol());
+            new Thread(workerThread).start();
 
-        // Thread 1 (ReaderThread) reads the JSON line by line and hands over the read line to Thread 2 (WorkerThread)
-        // WorkerThread computes OHLC packets based on 15 sec interval
-        // Publisher Thread reads the batches created by WorkerThread and
-
-        // Prepare a batch with assumption that there is only one user investing in only one Trade
-
-        // Update for One user subscribing multiple trades
-
-        // Update for multiple users subscribing multiple trades
-
-        // How to terminate the program
+            final PublisherThread publisherThread = (PublisherThread)threads.get(PUBLISHER_THREAD);
+            // Can set Client info here
+            new Thread(publisherThread).start();
+        }
     }
 
-    private void initialize() {
+    private static Map<String, Runnable> initialize() {
         if(isNull(barStart)) {
-            synchronized (this) {
+            synchronized (TradeService.class) {
                 if(isNull(barStart)) {
                     barStart = System.currentTimeMillis();
-                    new Thread(new ReaderThread(barStart, rawTradesQueue)).start();
-                    new Thread(workerThread).start();
-                    new Thread(new PublisherThread(computedTradesQueue)).start();
+                    final WorkerThread workerThread = new WorkerThread(rawTradesQueue, computedTradesQueue);
+                    final ReaderThread readerThread = new ReaderThread(barStart, rawTradesQueue);
+                    final PublisherThread publisherThread = new PublisherThread(computedTradesQueue);
+                    threads = new HashMap<>();
+                    threads.put(READER_THREAD, readerThread);
+                    threads.put(WORKER_THREAD, workerThread);
+                    threads.put(PUBLISHER_THREAD, publisherThread);
                 }
             }
         }
+        return threads;
     }
 }

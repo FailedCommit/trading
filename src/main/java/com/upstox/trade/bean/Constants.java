@@ -1,5 +1,7 @@
 package com.upstox.trade.bean;
 
 public class Constants {
-    public static final Long BAR_INTERVAL_IN_SECONDS = 15L;
+    public static final String READER_THREAD = "readerThread";
+    public static final String WORKER_THREAD = "workerThread";
+    public static final String PUBLISHER_THREAD = "publisherThread";
 }

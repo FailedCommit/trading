@@ -17,20 +17,23 @@ import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.upstox.trade.bean.Constants.BAR_INTERVAL_IN_SECONDS;
 
 public class ReaderThread implements Runnable {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final BlockingQueue<List<Trade>> rawTradesQueue;
     private Long barStart;
     private final AtomicInteger barNum = new AtomicInteger(1);
-    private Long barInterval = 0L;
+    private Long barInterval;
 
     @Autowired
     public ReaderThread(Long barStart,
                         BlockingQueue<List<Trade>> rawTradesQueue) {
         this.barStart = barStart;
         this.rawTradesQueue = rawTradesQueue;
+    }
+
+    public void setBarInterval(Long barInterval) {
+        this.barInterval = barInterval;
     }
 
     /**
@@ -56,20 +59,20 @@ public class ReaderThread implements Runnable {
             List<Trade> tradesForInterval = new ArrayList<>();
             for (String line; (line = reader.readLine()) != null; ) {
                 Long timeElapsed = 0L;
-                while(timeElapsed < BAR_INTERVAL_IN_SECONDS) {
+                while(timeElapsed < barInterval * 1000) {
                     Long currentTime = System.currentTimeMillis();
                     final Trade trade = objectMapper.readValue(line, Trade.class);
                     trade.setBarNum(barNum.intValue());
                     tradesForInterval.add(trade);
                     timeElapsed = currentTime - startTime;
-                    if(timeElapsed >= BAR_INTERVAL_IN_SECONDS) {
+                    if(timeElapsed >= barInterval * 1000) {
                         startTime = currentTime;
                         List<Trade> copy = new ArrayList<>();
                         copy.addAll(tradesForInterval);
                         rawTradesQueue.put(copy);
                         tradesForInterval.clear();
                         barNum.getAndIncrement();
-                        System.out.println("############## Reader Thread: RawTradesQueue is populated ############");
+                        System.out.println("############## Reader Thread: RawTradesQueue is populated. Time interval: " + timeElapsed/1000 + " SEC ############ ");
                     }
                 }
             }
