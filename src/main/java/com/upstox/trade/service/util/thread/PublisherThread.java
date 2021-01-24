@@ -14,6 +14,7 @@ import static java.util.Objects.isNull;
 
 @RequiredArgsConstructor
 public class PublisherThread implements Runnable {
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private final BlockingQueue<Map<String, List<OrderResponse>>> computedTradesQueue;
 
     /**
@@ -38,11 +39,11 @@ public class PublisherThread implements Runnable {
                 }
                 for (Map.Entry entry : clientData.entrySet()) {
                     System.out.println("*************** " + entry.getKey() + " ***************");
-                    System.out.println(entry.getValue());
+                    System.out.println(objectMapper.writeValueAsString(entry.getValue()));
                     System.out.println("*******************************************************");
                 }
             }
-        } catch (InterruptedException ex) {
+        } catch (InterruptedException | JsonProcessingException ex) {
             System.out.println("CONSUMER INTERRUPTED");
         }
     }

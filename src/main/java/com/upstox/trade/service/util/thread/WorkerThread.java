@@ -61,6 +61,8 @@ public class WorkerThread implements Runnable {
                     System.out.println("############## Worker Thread: RawTradesQueue is empty ############");
                     continue;
                 }
+                computeMap .clear();
+                symbolToLastComputedTradeMapping.clear();
                 // No need for isEmpty check as it will automatically block
 //                final Map<String, List<OrderResponse>> computedTradeData = computedTradesQueue.take();
 //                lastComputedTrade = transform(rawTrade, lastComputedTrade);
@@ -68,6 +70,7 @@ public class WorkerThread implements Runnable {
                     String currentSymbol = trade.getSymbol();
                     if(symbolsToTrack.contains(currentSymbol)) {
                         OrderResponse resp = transform(trade, symbolToLastComputedTradeMapping.get(currentSymbol));
+                        symbolToLastComputedTradeMapping.put(currentSymbol, resp);
                         if(isNull(computeMap.get(currentSymbol))) {
                             computeMap.put(currentSymbol, new ArrayList<>(Arrays.asList(resp)));
                         } else {
@@ -97,11 +100,11 @@ public class WorkerThread implements Runnable {
         String openingPriceStr = isNull(target.getO()) ? source.getPrice() : target.getO();
         target.setO(openingPriceStr);
 
-        String highestPrice = (valueOf(target.getH()) < valueOf(source.getPrice())) ? source.getPrice() : target.getH();
-        target.setC(highestPrice);
+        String highestPrice = (valueOf(source.getPrice()) > valueOf(target.getH())) ? source.getPrice() : target.getH();
+        target.setH(highestPrice);
 
-        String lowestPrice = (valueOf(target.getL()) > valueOf(source.getPrice())) ? source.getPrice() : target.getL();
-        target.setC(lowestPrice);
+        String lowestPrice = (valueOf(source.getPrice()) < valueOf(target.getL())) ? source.getPrice() : target.getL();
+        target.setL(lowestPrice);
 
         String closingPrice = source.getPrice();
         target.setC(closingPrice);
