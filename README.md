@@ -1,0 +1,2 @@
+# trading
+Generates OHLC charts
